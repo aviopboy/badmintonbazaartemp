@@ -478,14 +478,36 @@ function App() {
   };
 
   const deleteProduct = async (id: string) => {
-    if (window.confirm("Remove this product from the catalog?")) {
+    if (!window.confirm("Remove this product from the catalog? This cannot be undone.")) return;
+    try {
+      // Only hide the product after the explicit server-side deletion succeeds.
+      await deleteApiProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
       toast("Product removed.");
-      try {
-        await deleteApiProduct(id);
-      } catch {
-        toast("Removed locally — failed to sync deletion. Reload may restore it.", true);
-      }
+    } catch {
+      toast("Could not delete the product. The existing product was kept.", true);
+    }
+  };
+
+  const toggleUserAdmin = async (user: User) => {
+    try {
+      const updated = await patchApiUser(user.id, { admin: !user.admin }) as User;
+      setUsers((prev) => prev.map((item) => item.id === updated.id ? updated : item));
+      toast(updated.admin ? "Admin granted." : "Admin revoked.");
+    } catch {
+      toast("Could not update this user. The existing user was kept unchanged.", true);
+    }
+  };
+
+  const deleteUser = async (user: User) => {
+    if (!window.confirm(`Delete "${user.name}"? This cannot be undone.`)) return;
+    try {
+      // A failed request must never make an existing user disappear locally.
+      await deleteApiUser(user.id);
+      setUsers((prev) => prev.filter((item) => item.id !== user.id));
+      toast("User removed.");
+    } catch {
+      toast("Could not delete this user. The existing user was kept.", true);
     }
   };
 
@@ -571,7 +593,8 @@ function App() {
         </div>
       )}
       {view === "admin" && currentUser?.admin && (
-        <Admin products={products} users={users} setUsers={setUsers}
+        <Admin products={products} users={users}
+          toggleUserAdmin={toggleUserAdmin} deleteUser={deleteUser}
           heroBackground={heroBackground} setHeroBackground={setHeroBackground}
           orders={orders} updateOrder={updateOrder} deleteOrder={deleteOrder}
           toast={toast} modal={modal} setModal={setModal}
@@ -1750,8 +1773,8 @@ function OrderReviewCard({ order, updateOrder, deleteOrder, toast }: {
 /* ════════════════════════════════════════════════════════════════
    ADMIN PANEL
 ══════════════════════════════════════════════════════════════════ */
-function Admin({ products, users, setUsers, heroBackground, setHeroBackground, orders, updateOrder, deleteOrder, toast, modal, setModal, editingProduct, setEditingProduct, saveProduct, deleteProduct, refreshOrders, ordersRefreshing }: {
-  products: Product[]; users: User[]; setUsers: (v: User[]) => void;
+function Admin({ products, users, toggleUserAdmin, deleteUser, heroBackground, setHeroBackground, orders, updateOrder, deleteOrder, toast, modal, setModal, editingProduct, setEditingProduct, saveProduct, deleteProduct, refreshOrders, ordersRefreshing }: {
+  products: Product[]; users: User[]; toggleUserAdmin: (user: User) => Promise<void>; deleteUser: (user: User) => Promise<void>;
   heroBackground: string; setHeroBackground: (v: string) => void;
   orders: Order[];
   updateOrder: (id: string, status: OrderStatus, message: string) => void;
@@ -1870,8 +1893,8 @@ function Admin({ products, users, setUsers, heroBackground, setHeroBackground, o
                         <div className="action-btns">
                           {u.id !== "u-admin" && (
                             <>
-                              <button className="btn-table-action" onClick={() => { setUsers(users.map((x) => x.id === u.id ? { ...x, admin: !x.admin } : x)); toast(u.admin ? "Admin revoked." : "Admin granted."); patchApiUser(u.id, { admin: !u.admin }).catch(() => {}); }} data-testid={`button-toggle-admin-${u.id}`} title={u.admin ? "Revoke admin" : "Make admin"}><ShieldCheck size={14} /></button>
-                              <button className="btn-table-action danger" onClick={() => { if (window.confirm(`Delete "${u.name}"?`)) { setUsers(users.filter((x) => x.id !== u.id)); toast("User removed."); deleteApiUser(u.id).catch(() => {}); } }} data-testid={`button-delete-user-${u.id}`} title="Delete"><Trash2 size={14} /></button>
+                              <button className="btn-table-action" onClick={() => { void toggleUserAdmin(u); }} data-testid={`button-toggle-admin-${u.id}`} title={u.admin ? "Revoke admin" : "Make admin"}><ShieldCheck size={14} /></button>
+                              <button className="btn-table-action danger" onClick={() => { void deleteUser(u); }} data-testid={`button-delete-user-${u.id}`} title="Delete"><Trash2 size={14} /></button>
                             </>
                           )}
                         </div>
