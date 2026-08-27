@@ -66,4 +66,6 @@ Products are now stored in the shared Neon PostgreSQL database (`bb_products` ta
 
 - Keep the brand name **Badminton Bazaar** and logo letter **B**
 - Do not use Shopify or any other hosted commerce platform
+- Products and users are permanent by default: never auto-delete, truncate, replace, or cap them. Only an explicit, confirmed admin delete may remove a record, and a failed delete must leave the existing record visible.
+- There is no product-count limit; every new product with a unique ID must be retained in the shared catalog.
 - **Always push fixes to `https://github.com/aviopboy/badmintonbazaartemp` only. Never push changes to the main `badmintonbazaar` repository.**
